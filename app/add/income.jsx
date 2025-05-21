@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { auth } from '../../firebase/firebase'; // ✅ your firebase config
+import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { auth } from '../../firebase/firebase';
 
 const AddIncomeScreen = () => {
   const router = useRouter();
@@ -23,19 +23,40 @@ const AddIncomeScreen = () => {
       return;
     }
 
+    const incomeAmount = parseFloat(amount);
+    if (isNaN(incomeAmount)) {
+      Alert.alert('Invalid Amount', 'Please enter a valid number.');
+      return;
+    }
+
     try {
       const db = getFirestore();
-      const incomeRef = collection(db, 'users', user.uid, 'income');
 
+      // Add income record
+      const incomeRef = collection(db, 'users', user.uid, 'income');
       await addDoc(incomeRef, {
         name,
-        amount: parseFloat(amount),
+        amount: incomeAmount,
         notes,
         date,
         createdAt: serverTimestamp(),
       });
 
-      router.replace('/tabs/home'); // ✅ Go back to home
+      // Get current user document
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      let currentBalance = 0;
+      if (userDocSnap.exists()) {
+        currentBalance = userDocSnap.data().cashBalance || 0;
+      }
+
+      // Update cash balance
+      await updateDoc(userDocRef, {
+        cashBalance: currentBalance + incomeAmount,
+      });
+
+      router.replace('/tabs/home');
     } catch (error) {
       console.error('Error adding income:', error);
       Alert.alert('Error', 'Something went wrong while saving your income.');

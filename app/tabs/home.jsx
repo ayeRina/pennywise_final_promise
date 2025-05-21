@@ -6,6 +6,7 @@ import {
   Dimensions,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import {
@@ -17,6 +18,7 @@ import {
   limit,
   doc,
   getDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { auth } from '../../firebase/firebase';
 
@@ -43,59 +45,50 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!user) return;
 
-    // OPTION 1: Try to fetch "currentBalance" doc first (one doc approach)
-    const fetchCurrentBalance = async () => {
+    const fetchCashBalance = async () => {
       try {
-        const balanceDocRef = doc(db, 'users', user.uid, 'balances', 'currentBalance');
-        const balanceSnap = await getDoc(balanceDocRef);
-        if (balanceSnap.exists()) {
-          setCashBalance(balanceSnap.data().amount);
-          setLoading(false);
+        const userDocRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          setCashBalance(userSnap.data().cashBalance || 0);
         } else {
-          // If no currentBalance doc, fallback to listen to balances collection
-          listenToBalances();
+          setCashBalance(0);
         }
+        setLoading(false);
       } catch (error) {
-        console.error('Error fetching currentBalance doc:', error);
-        // fallback to listener
-        listenToBalances();
+        console.error('Error fetching cash balance:', error);
+        setCashBalance(null);
+        setLoading(false);
       }
     };
 
-    // OPTION 2: Listen to latest balance if currentBalance doc not found
-    const listenToBalances = () => {
-      const balancesRef = collection(db, 'users', user.uid, 'balances');
-      const balancesQuery = query(balancesRef, orderBy('createdAt', 'desc'), limit(1));
-      const unsubscribeBalance = onSnapshot(
-        balancesQuery,
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const latestBalance = snapshot.docs[0].data().amount;
-            setCashBalance(latestBalance);
-          } else {
-            setCashBalance(null);
-          }
-          setLoading(false);
-        },
-        (error) => {
-          console.error('Error fetching balances collection:', error);
-          setLoading(false);
-        }
-      );
-
-      return unsubscribeBalance;
-    };
-
-    // Expenses listener
     const expensesRef = collection(db, 'users', user.uid, 'expenses');
     const unsubscribeExpenses = onSnapshot(
       expensesRef,
-      (snapshot) => {
+      async (snapshot) => {
         const data = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
         setExpenses(data);
+
+        // Optional: Recalculate balance by subtracting expenses
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userDocRef);
+          let income = userSnap.exists() ? userSnap.data().cashBalance || 0 : 0;
+          const totalExpenses = data.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+          const recalculatedBalance = income - totalExpenses;
+          setCashBalance(recalculatedBalance);
+
+          // Optional: Persist corrected balance to Firestore
+          await updateDoc(userDocRef, {
+            cashBalance: recalculatedBalance,
+          });
+        } catch (error) {
+          console.error('Error recalculating balance:', error);
+        }
+
         setLoading(false);
       },
       (error) => {
@@ -104,22 +97,13 @@ export default function HomeScreen() {
       }
     );
 
-    // Start fetching balance first
-    let unsubscribeBalance = null;
-    fetchCurrentBalance().then(() => {
-      // If fallback was called, unsubscribeBalance is returned
-      // If not, it remains null
-    });
-
-    // If fallback used, unsubscribeBalance set, otherwise null
+    fetchCashBalance();
 
     return () => {
-      if (unsubscribeBalance) unsubscribeBalance();
       unsubscribeExpenses();
     };
   }, [user]);
 
-  // Aggregate expenses by category
   const categoryTotals = {};
   expenses.forEach(exp => {
     const cat = exp.category || 'Others';
@@ -127,7 +111,6 @@ export default function HomeScreen() {
     categoryTotals[cat] += exp.amount || 0;
   });
 
-  // Prepare data for PieChart
   const chartData = Object.keys(categoryTotals).map(cat => ({
     name: cat,
     amount: categoryTotals[cat],
@@ -136,7 +119,6 @@ export default function HomeScreen() {
     legendFontSize: 14,
   }));
 
-  // Total expenses amount
   const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
   if (loading) {
