@@ -1,55 +1,44 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { db } from '../../firebase/firebase'; // 🔁 Adjust path as needed
-import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../../firebase/firebase'; // ✅ your firebase config
 
 const AddIncomeScreen = () => {
   const router = useRouter();
-
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState('');
 
   const handleAddIncome = async () => {
-    if (!name || !amount || !date) {
-      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in.');
       return;
     }
 
-    const incomeAmount = parseFloat(amount);
+    if (!name || !amount) {
+      Alert.alert('Missing Info', 'Please provide at least a name and amount.');
+      return;
+    }
 
     try {
-      // ✅ Add to transactions collection
-      await addDoc(collection(db, 'transactions'), {
+      const db = getFirestore();
+      const incomeRef = collection(db, 'users', user.uid, 'income');
+
+      await addDoc(incomeRef, {
         name,
-        amount: incomeAmount,
+        amount: parseFloat(amount),
         notes,
         date,
-        type: 'income',
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
       });
 
-      // ✅ Update cash balance
-      const balanceRef = doc(db, 'meta', 'balance');
-      const balanceSnap = await getDoc(balanceRef);
-      let currentBalance = 0;
-
-      if (balanceSnap.exists()) {
-        currentBalance = balanceSnap.data().cash || 0;
-      }
-
-      await updateDoc(balanceRef, {
-        cash: currentBalance + incomeAmount,
-      });
-
-      Alert.alert('Success', 'Income added successfully!');
-      router.replace('/tabs/home');
-
+      router.replace('/tabs/home'); // ✅ Go back to home
     } catch (error) {
       console.error('Error adding income:', error);
-      Alert.alert('Error', 'Something went wrong while adding income.');
+      Alert.alert('Error', 'Something went wrong while saving your income.');
     }
   };
 
@@ -59,7 +48,12 @@ const AddIncomeScreen = () => {
       <TextInput style={styles.input} value={name} onChangeText={setName} />
 
       <Text style={styles.label}>Amount</Text>
-      <TextInput style={styles.input} keyboardType="numeric" value={amount} onChangeText={setAmount} />
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={amount}
+        onChangeText={setAmount}
+      />
 
       <Text style={styles.label}>Notes</Text>
       <TextInput style={styles.input} value={notes} onChangeText={setNotes} />
