@@ -1,43 +1,70 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase/firebase';
-import { Ionicons } from '@expo/vector-icons'; // For icons
+import { Ionicons } from '@expo/vector-icons';
 
-export default function Login() {
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Error', 'Please enter both email and password');
-    return;
-  }
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    Alert.alert('Success', 'Logged in successfully');
-    
-    // ✅ Navigate to cash setup screen
-    router.replace('/cash/cashsetup');
-    
-  } catch (error) {
-    Alert.alert('Login Failed', error.message);
-  }
-};
+    if (!email || !password) {
+      Alert.alert('Missing Fields', 'Please enter both email and password.');
+      return;
+    }
 
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential?.user;
+
+      if (user?.emailVerified) {
+        Alert.alert('Success', 'Logged in successfully!');
+        router.replace('/cash/cashsetup');
+      } else {
+        Alert.alert(
+          'Email Not Verified',
+          'Please verify your email address before continuing.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Resend Verification',
+              onPress: async () => {
+                try {
+                  await user.sendEmailVerification();
+                  Alert.alert('Verification Sent', 'Check your inbox to verify your email.');
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to send verification email.');
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Login Failed', error.message || 'An unknown error occurred.');
+    }
+  };
 
   return (
     <View style={styles.container}>
-     <Image
+      <Image
         source={require('../../assets/image/penny.png')}
         style={styles.logo}
       />
       <Text style={styles.title}>Welcome to PennyWise</Text>
       <Text style={styles.subtitle}>Log In</Text>
 
-      {/* Email Input */}
       <View style={styles.inputContainer}>
         <Ionicons name="mail-outline" size={20} color="#555" style={styles.icon} />
         <TextInput
@@ -50,7 +77,6 @@ export default function Login() {
         />
       </View>
 
-      {/* Password Input */}
       <View style={styles.inputContainer}>
         <Ionicons name="lock-closed-outline" size={20} color="#555" style={styles.icon} />
         <TextInput
@@ -62,30 +88,28 @@ export default function Login() {
         />
       </View>
 
-      {/* Forgot Password */}
       <TouchableOpacity onPress={() => router.push('/auth/forgotpass')} style={styles.forgotLink}>
         <Text style={styles.forgotText}>Forgot Password?</Text>
       </TouchableOpacity>
 
-      {/* Login Button */}
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
 
-      {/* Signup Link */}
       <Text style={styles.registerText}>
         Not registered?{' '}
         <Text style={styles.createAccount} onPress={() => router.push('/auth/signup')}>
-          Create an account?
+          Create an account
         </Text>
       </Text>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2e7d32', // dark green
+    backgroundColor: '#2e7d32',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,

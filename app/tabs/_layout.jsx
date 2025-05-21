@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Image, View } from 'react-native';
 import tw from 'twrnc';
-import icon from '../../constants';
+import icons  from '../../constants';
 
 const TabIcon = ({ icon, color, name, focused }) => {  
     return (
@@ -26,7 +26,7 @@ const TabsLayout = () => {
                         headerShown: false,
                         tabBarIcon: ({ color, focused }) => (
                             <TabIcon
-                                icon={icon.home}  
+                                icon={icons.home}  
                                 color={color}
                                 name="Home"
                                 focused={focused}
@@ -42,7 +42,7 @@ const TabsLayout = () => {
                         headerShown: false,
                         tabBarIcon: ({ color, focused }) => (
                             <TabIcon
-                                icon={icon.transaction}  
+                                icon={icons.transaction}  
                                 color={color}
                                 name="Transaction"
                                 focused={focused}
@@ -51,6 +51,22 @@ const TabsLayout = () => {
                     }}
                 />
 
+<Tabs.Screen
+                    name="add"
+                    options={{
+                        title: 'Add',
+                        headerShown: false,
+                        tabBarIcon: ({ color, focused }) => (
+                            <TabIcon
+                                icon={icons.profile}  
+                                color={color}
+                                name="Add"
+                                focused={focused}
+                            />
+                        ),
+                    }}
+                />  
+
                 <Tabs.Screen
                     name="profile"
                     options={{
@@ -58,7 +74,7 @@ const TabsLayout = () => {
                         headerShown: false,
                         tabBarIcon: ({ color, focused }) => (
                             <TabIcon
-                                icon={icon.profile}  
+                                icon={icons.profile}  
                                 color={color}
                                 name="Profile"
                                 focused={focused}

@@ -23,7 +23,7 @@ export default function CashSetupScreen() {
 
   const handleEnter = () => {
     console.log('Confirmed');
-    router.replace('/(tabs)/home'); 
+    router.replace('/tabs/home'); 
 
     // Alert.alert(
     //   'Are you sure?',
