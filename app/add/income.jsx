@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { auth } from '../../firebase/firebase';
 
 const AddIncomeScreen = () => {
@@ -32,9 +40,10 @@ const AddIncomeScreen = () => {
     try {
       const db = getFirestore();
 
-      // Add income record
-      const incomeRef = collection(db, 'users', user.uid, 'income');
-      await addDoc(incomeRef, {
+      // Add to unified 'transactions' collection
+      const transactionRef = collection(db, 'users', user.uid, 'transactions');
+      await addDoc(transactionRef, {
+        type: 'income',
         name,
         amount: incomeAmount,
         notes,
@@ -42,7 +51,7 @@ const AddIncomeScreen = () => {
         createdAt: serverTimestamp(),
       });
 
-      // Get current user document
+      // Update user's cash balance
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -51,11 +60,11 @@ const AddIncomeScreen = () => {
         currentBalance = userDocSnap.data().cashBalance || 0;
       }
 
-      // Update cash balance
       await updateDoc(userDocRef, {
         cashBalance: currentBalance + incomeAmount,
       });
 
+      Alert.alert('Success', 'Income added!');
       router.replace('/tabs/home');
     } catch (error) {
       console.error('Error adding income:', error);
@@ -88,7 +97,7 @@ const AddIncomeScreen = () => {
       />
 
       <TouchableOpacity style={styles.addButton} onPress={handleAddIncome}>
-        <Text style={styles.addButtonText}>Add</Text>
+        <Text style={styles.addButtonText}>Add Income</Text>
       </TouchableOpacity>
     </View>
   );
