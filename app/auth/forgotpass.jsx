@@ -59,7 +59,8 @@ export default function ForgotPass() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+};
+
 
 const styles = StyleSheet.create({
   container: {
