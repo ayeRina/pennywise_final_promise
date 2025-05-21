@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "pennywise",
+    "scheme": "pennywise",
     "slug": "pennywise",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +24,11 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }
