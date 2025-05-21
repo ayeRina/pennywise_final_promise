@@ -1,18 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router'; // ✅ Import router
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { db } from '../../firebase/firebase'; // 🔁 Adjust path as needed
+import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const AddIncomeScreen = () => {
-  const router = useRouter(); // ✅ Initialize router
+  const router = useRouter();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState('');
 
-  const handleAddIncome = () => {
-    // You can add validation or saving logic here
-    router.replace('/tabs/home'); // ✅ Replace current screen with Home
+  const handleAddIncome = async () => {
+    if (!name || !amount || !date) {
+      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+      return;
+    }
+
+    const incomeAmount = parseFloat(amount);
+
+    try {
+      // ✅ Add to transactions collection
+      await addDoc(collection(db, 'transactions'), {
+        name,
+        amount: incomeAmount,
+        notes,
+        date,
+        type: 'income',
+        createdAt: new Date(),
+      });
+
+      // ✅ Update cash balance
+      const balanceRef = doc(db, 'meta', 'balance');
+      const balanceSnap = await getDoc(balanceRef);
+      let currentBalance = 0;
+
+      if (balanceSnap.exists()) {
+        currentBalance = balanceSnap.data().cash || 0;
+      }
+
+      await updateDoc(balanceRef, {
+        cash: currentBalance + incomeAmount,
+      });
+
+      Alert.alert('Success', 'Income added successfully!');
+      router.replace('/tabs/home');
+
+    } catch (error) {
+      console.error('Error adding income:', error);
+      Alert.alert('Error', 'Something went wrong while adding income.');
+    }
   };
 
   return (
@@ -22,11 +60,6 @@ const AddIncomeScreen = () => {
 
       <Text style={styles.label}>Amount</Text>
       <TextInput style={styles.input} keyboardType="numeric" value={amount} onChangeText={setAmount} />
-
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.categoryBox}>
-        <Text style={styles.categoryText}>Income</Text>
-      </View>
 
       <Text style={styles.label}>Notes</Text>
       <TextInput style={styles.input} value={notes} onChangeText={setNotes} />
@@ -61,18 +94,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0d9a2',
     borderRadius: 8,
     padding: 10,
-  },
-  categoryBox: {
-    backgroundColor: '#fff',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    marginTop: 5,
-  },
-  categoryText: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
   },
   addButton: {
     backgroundColor: '#a5d6a7',

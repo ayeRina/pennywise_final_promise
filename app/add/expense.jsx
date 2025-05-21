@@ -5,9 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../../firebase/firebase'; // Adjust path to your Firebase config
 
 const categories = [
   { name: 'Medical', color: '#FF6F00' },
@@ -21,6 +24,7 @@ const categories = [
 
 const AddExpenseScreen = () => {
   const router = useRouter();
+  const db = getFirestore();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -29,9 +33,37 @@ const AddExpenseScreen = () => {
   const [notification, setNotification] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  const handleAddExpense = () => {
-    // You could add logic to save data here
-    router.replace('/tabs/home');
+  const handleAddExpense = async () => {
+    // Basic validation
+    if (!name || !amount || !selectedCategory) {
+      Alert.alert('Missing Fields', 'Please fill out Name, Amount and select a Category.');
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('Not Logged In', 'Please log in to add expenses.');
+      return;
+    }
+
+    const expenseData = {
+      name,
+      amount: parseFloat(amount),
+      category: selectedCategory,
+      notes,
+      date: date || null,
+      notification: notification || null,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'expenses'), expenseData);
+      Alert.alert('Success', 'Expense added successfully!');
+      router.replace('/tabs/home'); // Navigate to home (where your pie graph presumably is)
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add expense. Please try again.');
+      console.error('Error adding expense:', error);
+    }
   };
 
   return (
@@ -132,7 +164,6 @@ const styles = StyleSheet.create({
   categoryContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
     marginVertical: 10,
   },
   categoryCircle: {

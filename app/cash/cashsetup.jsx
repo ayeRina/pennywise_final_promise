@@ -8,10 +8,13 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { auth } from '../../firebase/firebase';
 
 export default function CashSetupScreen() {
   const [value, setValue] = useState('');
   const router = useRouter();
+  const db = getFirestore();
 
   const handlePress = (input) => {
     if (input === 'del') {
@@ -21,31 +24,37 @@ export default function CashSetupScreen() {
     }
   };
 
-  const handleEnter = () => {
-    console.log('Confirmed');
-    router.replace('/tabs/home'); 
-
-    // Alert.alert(
-    //   'Are you sure?',
-    //   `You're setting your balance to ₱${value || '0.00'}`,
-    //   [
-    //     { text: 'No', onPress: () => console.log('Cancelled'), style: 'cancel' },
-    //     {
-    //       text: 'Yes',
-    //       onPress: () => {
-    //         console.log('Confirmed!');
-    //         router.replace('/tabs/home'); // ✅ Correct for expo-router
-    //       },
-    //     },
-    //   ]
-    // );
-  };
-
-  // const handleEnter = () => {
-  //   setValue((prev) => prev + 'h');
+  const handleEnter = async () => {
+    if (!value) {
+      Alert.alert('Please enter a valid amount.');
+      return;
+    }
     
-  // };
-  
+    const amount = parseFloat(value);
+    if (isNaN(amount) || amount < 0) {
+      Alert.alert('Invalid amount. Please enter a positive number.');
+      return;
+    }
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'No user logged in.');
+        return;
+      }
+
+      await setDoc(doc(db, 'users', user.uid, 'balances', 'currentBalance'), {
+        amount,
+        updatedAt: new Date(),
+      });
+
+      Alert.alert('Success', 'Balance saved!');
+      router.replace('/tabs/home');
+    } catch (error) {
+      console.error('Firestore save error:', error);
+      Alert.alert('Error', 'Failed to save balance.');
+    }
+  };
 
   const buttons = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'];
 
@@ -58,12 +67,11 @@ export default function CashSetupScreen() {
       <Text style={styles.title}>Set up your cash balance</Text>
 
       <View style={styles.displayContainer}>
-  <Text style={styles.display}>{value || '0.00'}</Text>
-  <TouchableOpacity style={[styles.key, styles.enterKey]} onPress={handleEnter}>
-    <Text style={styles.keyText}>✔️</Text>
-  </TouchableOpacity>
-</View>
-
+        <Text style={styles.display}>{value || '0.00'}</Text>
+        <TouchableOpacity style={[styles.key, styles.enterKey]} onPress={handleEnter}>
+          <Text style={styles.keyText}>✔️</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.keypad}>
         {buttons.map((item, index) => (
